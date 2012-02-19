@@ -1623,6 +1623,42 @@ static int wpa_supplicant_driver_cmd(struct wpa_supplicant *wpa_s,
     }
     return( ret );
 }
+
+static int wpa_supplicant_signal_poll(struct wpa_supplicant *wpa_s, char *buf,
+                                      size_t buflen)
+{
+    int ret;
+    struct wpa_signal_info si;
+
+    ret = wpa_drv_signal_poll(wpa_s, &si);
+    if (ret == 0) {
+
+        ret = os_snprintf(buf, buflen, "RSSI=%d\nLINKSPEED=%d\n"
+                          "NOISE=%d\nFREQUENCY=%u\n",
+                          si.current_signal, si.current_txrate / 1000,
+                          si.current_noise, si.frequency);
+        if (ret < 0 || (unsigned int) ret > buflen)
+            ret = -1;
+    }
+    if (ret < 0) {
+        const int lssize=20;
+        const int rssisize=16;
+        char linkspeed[lssize];
+        char rssi[rssisize];
+
+        wpa_supplicant_driver_cmd(wpa_s, "LINKSPEED", linkspeed, lssize);
+        wpa_supplicant_driver_cmd(wpa_s, "RSSI", rssi, rssisize);
+
+        ret = os_snprintf(buf, buflen, "RSSI=%s\nLINKSPEED=%d\n"
+            "NOISE=0\nFREQUENCY=0\n",
+            strcasestr(rssi,"rssi")+5, atoi(linkspeed+10));
+    }
+
+    if (ret < 0 || (unsigned int) ret > buflen)
+        return -1;
+    return ret;
+}
+
 #endif
 
 char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
